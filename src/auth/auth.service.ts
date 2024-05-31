@@ -13,7 +13,18 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async signUp(createUserDto: any): Promise<any> {
+  async signUp(createUserDto: UserDocument): Promise<any> {
+    // 查找用户是否已经存在
+    const userExist = await this.userModel.findOne({
+      email: createUserDto.email,
+    });
+    if (userExist) {
+      return {
+        status: 'error',
+        message: '当前用户已经存在',
+      };
+    }
+    // 创建用户
     const user = new this.userModel(createUserDto);
     await user.save();
     return this.createToken(user);
@@ -22,17 +33,23 @@ export class AuthService {
   async signIn(email: string, password: string): Promise<any> {
     const user = await this.userModel.findOne({ email }).select('+password');
     if (!user || !(await bcrypt.compare(password, user.password))) {
-      throw new UnauthorizedException('Invalid credentials');
+      return {
+        status: 'error',
+        message: '用户名或密码错误',
+      };
     }
     return this.createToken(user);
   }
 
   async createToken(user: UserDocument) {
-    const payload = { email: user.email, sub: user._id };
-    console.log('payload', payload);
-
+    const payload = { email: user.email, userId: user._id };
+    user.password = undefined;
     return {
+      status: 'success',
       token: this.jwtService.sign(payload),
+      data: {
+        user,
+      },
     };
   }
 }
