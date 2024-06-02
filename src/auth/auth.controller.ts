@@ -20,7 +20,7 @@ export class AuthController {
     @Body('email') email: string,
     @Body('password') password: string,
   ) {
-    return this.authService.signIn(email, password);
+    return await this.authService.signIn(email, password);
   }
   //已知旧密码重置密码
   @Post('reset')
@@ -29,6 +29,11 @@ export class AuthController {
     @Body('oldPassword') oldPassword: string,
     @Body('newPassword') newPassword: string,
   ) {
-    return this.authService.reset(email, oldPassword, newPassword);
+    return await this.authService.reset(email, oldPassword, newPassword);
+  }
+  //不知道密码，忘记密码
+  @Post('forget')
+  async forget(@Body('email') email: string) {
+    return this.authService.forget(email);
   }
 }

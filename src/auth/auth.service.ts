@@ -7,12 +7,14 @@ import { User, UserDocument } from '../schemas/user.schema';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-auth.dto';
 import { CustomException } from 'src/common/exceptions/custom.exception';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private jwtService: JwtService,
+    private readonly mailService: MailService,
   ) {}
 
   async signUp(createUserDto: CreateUserDto): Promise<any> {
@@ -54,6 +56,23 @@ export class AuthService {
     return this.createToken(user);
   }
 
+  //不知道密码，忘记密码
+  async forget(email: string): Promise<any> {
+    const user = await this.userModel.findOne({ email });
+    if (!user) {
+      throw new CustomException(`用户不存在`); // 自定义消息
+    }
+    //生成重置密码的token
+    const token = this.jwtService.sign({ email }, { expiresIn: '1h' });
+    //发送邮件
+
+    return {
+      status: 'success',
+      data: {
+        user,
+      },
+    };
+  }
   async createToken(user: UserDocument) {
     const payload = { email: user.email, userId: user._id };
     user.password = undefined;
