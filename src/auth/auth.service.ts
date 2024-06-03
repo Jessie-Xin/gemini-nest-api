@@ -62,15 +62,19 @@ export class AuthService {
     if (!user) {
       throw new CustomException(`用户不存在`); // 自定义消息
     }
-    //生成重置密码的token
-    const token = this.jwtService.sign({ email }, { expiresIn: '1h' });
+    const token = user.createPasswordResetToken();
+    await user.save({
+      validateBeforeSave: false,
+    });
     //发送邮件
-
+    const resetURL = `http://localhost:3000/resetPassword/${token}`;
+    await this.mailService.sendEmail({
+      email: email,
+      subject: '密码重置',
+      message: `点击链接重置密码：${resetURL}`,
+    });
     return {
-      status: 'success',
-      data: {
-        user,
-      },
+      message: '重置密码链接已发送至你的邮箱',
     };
   }
   async createToken(user: UserDocument) {

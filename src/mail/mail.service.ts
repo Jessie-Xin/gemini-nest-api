@@ -6,15 +6,14 @@ import { MailerService } from '@nestjs-modules/mailer';
 export class MailService {
   constructor(private readonly mailerService: MailerService) {}
 
-  async sendResetPasswordEmail(email: string, token: string) {
-    const url = `http://your-app-url/reset-password?token=${token}`;
-    await this.mailerService.sendMail({
-      to: email,
-      subject: 'Reset your password',
-      //   template: './reset-password', // 邮件模板
-      context: {
-        url,
-      },
-    });
+  async sendEmail({ email, subject, message }) {
+    const mailOptions = {
+      from: '"Fred Foo 👻" <foo@example.com>', // sender address
+      to: email, // list of receivers
+      subject: subject, // Subject line
+      text: message, // plain text body
+      // html: '<b>Hello world?</b>' // html body
+    };
+    await this.mailerService.sendMail(mailOptions);
   }
 }

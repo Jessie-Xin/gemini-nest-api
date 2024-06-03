@@ -2,11 +2,15 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import * as bcrypt from 'bcrypt';
-
+import { JwtService } from '@nestjs/jwt';
 export type UserDocument = User & Document;
 
 @Schema()
 export class User {
+  constructor(private jwtService: JwtService) {}
+  @Prop()
+  _id: string;
+
   @Prop({ required: true })
   name: string;
 
@@ -22,11 +26,23 @@ export class User {
   @Prop()
   passwordResetToken: string;
 
-  @Prop()
-  passwordResetExpires: Date;
-
   async validatePassword(password: string): Promise<boolean> {
     return bcrypt.compare(password, this.password);
+  }
+  // 生成密码重置token
+
+  createPasswordResetToken(): string {
+    const resetToken = this.jwtService.sign(
+      {
+        id: this._id,
+        email: this.email,
+      },
+      {
+        expiresIn: '10m',
+      },
+    );
+    this.passwordResetToken = resetToken;
+    return resetToken;
   }
 }
 
@@ -37,3 +53,5 @@ UserSchema.pre('save', async function (next) {
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
+UserSchema.methods.createPasswordResetToken =
+  User.prototype.createPasswordResetToken;
