@@ -8,7 +8,7 @@ import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-auth.dto';
 import { CustomException } from 'src/common/exceptions/custom.exception';
 import { MailService } from 'src/mail/mail.service';
-import * as crypto from 'crypto';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -63,11 +63,12 @@ export class AuthService {
       throw new CustomException(`用户不存在`); // 自定义消息
     }
 
-    const token = user.createPasswordResetToken();
+    const token = this.jwtService.sign(
+      { email: user.email },
+      { expiresIn: '10m' },
+    );
     user.passwordResetToken = token;
-    await user.save({
-      validateBeforeSave: false,
-    });
+    await user.save();
     //发送邮件
     const resetURL = `http://localhost:3000/resetPassword/${token}`;
     await this.mailService.sendEmail({
@@ -81,26 +82,30 @@ export class AuthService {
   }
   // 根据token重置密码
   async reset(token: string, newPassword: string): Promise<any> {
-    //1. 获取token
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    // 从token中解码用户id,email
+    const decoded = this.jwtService.verify(token);
     const user = await this.userModel.findOne({
-      passwordResetToken: hashedToken,
-      passwordResetExpires: { $gt: Date.now() },
+      email: decoded.email,
     });
+    console.log('decoded', decoded);
+
+    // 如果用户未找到或令牌已过期，抛出错误
     if (!user) {
-      throw new CustomException(`token已过期`); // 自定义消息
+      throw new CustomException(`token已过期，请重新请求密码重置`);
     }
 
+    // 更新用户密码并清除重置令牌和过期时间
     user.password = newPassword;
     user.passwordResetToken = undefined;
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
+
     await user.save();
 
+    // 返回成功信息
     return {
       token,
     };
   }
+
   async createToken(user: UserDocument) {
     const payload = { email: user.email, userId: user._id };
     user.password = undefined;
