@@ -2,15 +2,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import * as bcrypt from 'bcrypt';
-import { JwtService } from '@nestjs/jwt';
+import * as crypto from 'crypto';
 export type UserDocument = User & Document;
 
 @Schema()
 export class User {
-  constructor(private jwtService: JwtService) {}
-  @Prop()
-  _id: string;
-
   @Prop({ required: true })
   name: string;
 
@@ -23,26 +19,39 @@ export class User {
   @Prop({ default: 'user' })
   role: string;
 
+  // 密码重置时间
+  @Prop()
+  passwordChangedAt: Date;
+
   @Prop()
   passwordResetToken: string;
 
+  @Prop()
+  passwordResetExpires: Date;
+  // 验证密码
   async validatePassword(password: string): Promise<boolean> {
     return bcrypt.compare(password, this.password);
   }
-  // 生成密码重置token
-
+  // 创建密码重置token
   createPasswordResetToken(): string {
-    const resetToken = this.jwtService.sign(
-      {
-        id: this._id,
-        email: this.email,
-      },
-      {
-        expiresIn: '10m',
-      },
-    );
-    this.passwordResetToken = resetToken;
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    this.passwordResetToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+    this.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000);
     return resetToken;
+  }
+  // 判断密码是否修改过
+  changedPasswordAfter(JWTTimestamp: number): boolean {
+    if (this.passwordChangedAt) {
+      const changedTimestamp = parseInt(
+        (this.passwordChangedAt.getTime() / 1000).toString(),
+        10,
+      );
+      return JWTTimestamp < changedTimestamp;
+    }
+    return false;
   }
 }
 
@@ -53,5 +62,10 @@ UserSchema.pre('save', async function (next) {
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
-UserSchema.methods.createPasswordResetToken =
-  User.prototype.createPasswordResetToken;
+
+// 更新密码修改时间
+UserSchema.pre('save', async function (next) {
+  if (!this.isModified('password') || this.isNew) return next();
+  this.passwordChangedAt = new Date(Date.now() - 1000);
+  next();
+});

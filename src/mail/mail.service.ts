@@ -1,18 +1,18 @@
 // src/mail/mail.service.ts
 import { Injectable } from '@nestjs/common';
-import { MailerService } from '@nestjs-modules/mailer';
+import { MailerService, ISendMailOptions } from '@nestjs-modules/mailer';
 
 @Injectable()
 export class MailService {
   constructor(private readonly mailerService: MailerService) {}
 
   async sendEmail({ email, subject, message }) {
-    const mailOptions = {
-      from: '"Fred Foo 👻" <foo@example.com>', // sender address
-      to: email, // list of receivers
-      subject: subject, // Subject line
-      text: message, // plain text body
-      // html: '<b>Hello world?</b>' // html body
+    const mailOptions: ISendMailOptions = {
+      from: '"Fred Foo 👻" <foo@example.com>',
+      to: email,
+      subject: subject,
+      // text: message, // 纯文本内容
+      html: `<p>${message}</p>`, // HTML 内容，可以使用模板引擎来渲染动态内容
     };
     await this.mailerService.sendMail(mailOptions);
   }

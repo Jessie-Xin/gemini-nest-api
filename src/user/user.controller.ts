@@ -13,7 +13,7 @@ import { User } from 'src/schemas/user.schema';
 import { Roles } from 'src/auth/roles.decorator';
 
 @Controller('user')
-@Roles('admin')
+// @Roles('admin')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 

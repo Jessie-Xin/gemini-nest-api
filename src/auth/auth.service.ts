@@ -8,7 +8,7 @@ import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-auth.dto';
 import { CustomException } from 'src/common/exceptions/custom.exception';
 import { MailService } from 'src/mail/mail.service';
-
+import * as crypto from 'crypto';
 @Injectable()
 export class AuthService {
   constructor(
@@ -42,14 +42,14 @@ export class AuthService {
   }
 
   //已知旧密码重置密码
-  async reset(
+  async update(
     email: string,
     oldPassword: string,
     newPassword: string,
   ): Promise<any> {
     const user = await this.userModel.findOne({ email }).select('+password');
-    if (!user || !(await bcrypt.compare(oldPassword, user.password))) {
-      throw new CustomException(`用户名或密码错误`); // 自定义消息
+    if (!user || !user.validatePassword(oldPassword)) {
+      throw new CustomException(`邮箱或密码错误`); // 自定义消息
     }
     user.password = newPassword;
     await user.save();
@@ -62,7 +62,9 @@ export class AuthService {
     if (!user) {
       throw new CustomException(`用户不存在`); // 自定义消息
     }
+
     const token = user.createPasswordResetToken();
+    user.passwordResetToken = token;
     await user.save({
       validateBeforeSave: false,
     });
@@ -75,6 +77,28 @@ export class AuthService {
     });
     return {
       message: '重置密码链接已发送至你的邮箱',
+    };
+  }
+  // 根据token重置密码
+  async reset(token: string, newPassword: string): Promise<any> {
+    //1. 获取token
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await this.userModel.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() },
+    });
+    if (!user) {
+      throw new CustomException(`token已过期`); // 自定义消息
+    }
+
+    user.password = newPassword;
+    user.passwordResetToken = undefined;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+
+    return {
+      token,
     };
   }
   async createToken(user: UserDocument) {
