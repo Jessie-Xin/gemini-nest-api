@@ -3,11 +3,17 @@ import { CreateChatDto } from './dto/create-chat.dto';
 import { UpdateChatDto } from './dto/update-chat.dto';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ConfigService } from '@nestjs/config';
+import { User, UserDocument } from 'src/schemas/user.schema';
+import { Model } from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
 
 @Injectable()
 export class ChatService {
-  private genAI: GoogleGenerativeAI;
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private genAI: GoogleGenerativeAI,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+  ) {
     this.genAI = new GoogleGenerativeAI(
       this.configService.get('GOOGLE_API_KEY'),
     );
@@ -15,15 +21,28 @@ export class ChatService {
   async create(createChatDto: CreateChatDto) {
     const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
+    const chatHistory: ChatModuleType.ChatMessage[] = [];
+    const chat = model.startChat({
+      history: chatHistory,
+      generationConfig: { maxOutputTokens: 500 },
+    });
+    chatHistory.push({
+      role: 'user',
+      parts: [{ text: createChatDto.message }],
+    });
     const prompt = createChatDto.message;
 
-    const result = await model.generateContentStream(prompt);
+    const result = await chat.sendMessageStream(prompt);
     let text = '';
     for await (const chunk of result.stream) {
       const chunkText = chunk.text();
       console.log(chunkText);
       text += chunkText;
     }
+    chatHistory.push({
+      role: 'model',
+      parts: [{ text }],
+    });
     return text;
   }
 
@@ -31,15 +50,15 @@ export class ChatService {
     return `This action returns all chat`;
   }
 
-  findOne(id: number) {
+  findOne(id: string) {
     return `This action returns a #${id} chat`;
   }
 
-  update(id: number, updateChatDto: UpdateChatDto) {
+  update(id: string, updateChatDto: UpdateChatDto) {
     return `This action updates a #${id} chat`;
   }
 
-  remove(id: number) {
+  remove(id: string) {
     return `This action removes a #${id} chat`;
   }
 }
