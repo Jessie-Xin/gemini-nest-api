@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { User, UserDocument } from 'src/schemas/user.schema';
 import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
+import { Chat } from 'src/schemas/chat.schema';
 
 @Injectable()
 export class ChatService {
@@ -13,6 +14,7 @@ export class ChatService {
     private configService: ConfigService,
     private genAI: GoogleGenerativeAI,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Chat.name) private chatModel: Model<Chat>,
   ) {
     this.genAI = new GoogleGenerativeAI(
       this.configService.get('GOOGLE_API_KEY'),
@@ -20,16 +22,12 @@ export class ChatService {
   }
   async create(createChatDto: CreateChatDto) {
     const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
     const chatHistory: ChatModuleType.ChatMessage[] = [];
     const chat = model.startChat({
       history: chatHistory,
       generationConfig: { maxOutputTokens: 500 },
     });
-    chatHistory.push({
-      role: 'user',
-      parts: [{ text: createChatDto.message }],
-    });
+
     const prompt = createChatDto.message;
 
     const result = await chat.sendMessageStream(prompt);
@@ -39,11 +37,12 @@ export class ChatService {
       console.log(chunkText);
       text += chunkText;
     }
-    chatHistory.push({
-      role: 'model',
-      parts: [{ text }],
-    });
-    return text;
+
+    // 创建和保存文档
+
+    return {
+      message: text,
+    };
   }
 
   findAll() {
@@ -51,7 +50,7 @@ export class ChatService {
   }
 
   findOne(id: string) {
-    return `This action returns a #${id} chat`;
+    return this.chatModel.findById({ userId: id });
   }
 
   update(id: string, updateChatDto: UpdateChatDto) {

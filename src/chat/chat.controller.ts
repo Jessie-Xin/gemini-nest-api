@@ -15,7 +15,7 @@ import { UpdateChatDto } from './dto/update-chat.dto';
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
   // 创建消息
-  @Post('generate')
+  @Post()
   create(@Body() createChatDto: CreateChatDto) {
     return this.chatService.create(createChatDto);
   }
