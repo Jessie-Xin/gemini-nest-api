@@ -17,24 +17,24 @@ export class ChatController {
   // 创建消息
   @Post()
   create(@Body() createChatDto: CreateChatDto) {
-    return this.chatService.create(createChatDto);
+    return this.chatService.createOrUpdateChat(createChatDto);
   }
-
-  @Get()
-  findAll() {
-    return this.chatService.findAll();
+  //查询该用户下的所有聊天列表
+  @Get(':id/list')
+  findAll(@Param('id') id: string) {
+    return this.chatService.findChatList(id);
   }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.chatService.findOne(id);
+  // 查询指定聊天
+  @Get(':chatId/detail')
+  findOne(@Param('chatId') chatId: string) {
+    return this.chatService.findChatDetail(chatId);
   }
-
-  @Patch(':id')
+  // 更新聊天标题
+  @Patch(':id/title')
   update(@Param('id') id: string, @Body() updateChatDto: UpdateChatDto) {
-    return this.chatService.update(id, updateChatDto);
+    return this.chatService.updateTitle(id, updateChatDto);
   }
-
+  // 删除聊天
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.chatService.remove(id);
